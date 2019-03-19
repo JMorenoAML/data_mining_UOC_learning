@@ -1,7 +1,7 @@
 # data_mining_UOC_learning
 Learned techniques and explanatory tutorials. Programmed in R.
 
-# COVERED TOPICS:
+# COVERED TOPICS IN Data_mining_Github_version_JOSELUISMORENOVILLANUEVA.html:
  1. Data load
  2. Descriptive analysis
  3. Outlier detection
@@ -12,3 +12,4 @@ Learned techniques and explanatory tutorials. Programmed in R.
  8. ANOVA method
  
  This file is an adaptation of some works for my master degree in BI and big data.
+  
