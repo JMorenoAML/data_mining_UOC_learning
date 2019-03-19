@@ -1,0 +1,517 @@
+---
+title: "Data mining, concepts and techniques"
+author: "Jose Luis Moreno Villanueva"
+date: "18th January 2019"
+output: html_document
+---
+
+******
+# COVERED TOPICS:
+ 1. Data load
+ 2. Descriptive analysis
+ 3. Outlier detection
+ 4. Confidence Intervals
+ 5. Hypothesis testing
+ 6. Correlation
+ 7. Linear Regression
+ 8. ANOVA method
+ 
+ 
+******
+
+******
+# Introduction
+******
+In this file I will work with the famous UCI dataset, Machine Learning Repository about car fuel consumption (mpg). The name of the dataset is "auto-mpg.txt". It has 9 variables.
+
+
+1. mpg: v. continuous
+2. cilinder number: v. discrete
+3. cilinder capacity: v. continuous
+4. horsepower (CV): v. continuous
+5. weight: v. continuous
+6. acelerationn: v. continuous
+7. year of model: v. discrete
+8. origin: v. discrete
+9. car name (or ID): factor (unique)
+
+
+
+******
+# Data load
+******
+
+Load the file and inspect variables. In case of an unadequated variable type, make the proper transformations
+
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#read the file:
+nombreruta_PEC <- paste(getwd(),"/auto-mpg.txt", sep = "")
+
+coches<-read.table(("auto-mpg.txt"),header=T,stringsAsFactors = FALSE, encoding="UTF-8") #UTF=8 avoids errors with ñ and other                                                                                                 special characters 
+
+
+#check head and tail form the file (5 elements):
+head(coches)
+tail(coches)
+
+summary(coches)
+# 398 rows, with 9 variables.
+
+str(coches)
+
+#CV comes as "chr", I must change it to numerical
+
+coches$CV <- as.numeric(coches$CV)
+str(coches)                            #checking for correctness of changes
+```
+
+******
+# Descriptive analysis
+******
+I am getting the number of rows and columns. For the numerical variables, check relevant statistical information (mean, median, auqrtiles...). Use graphs if neded. Note the number of missing values.
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#number of rows and columns:
+ncol(coches)
+colnames(coches)    #mpg = miles per gal (consumption), if mpg increases, consumtion decreases.
+
+nrow(coches)
+
+#mean, median, auqrtiles, max and min:
+summary(coches)
+
+
+#by visual inspection, variable "origen", its values (1,2,3) are: 1=America, 2=Europa, 3= Asia, indicating manufacture origin. As it is not specified or needed, I will leave it as numbers by now.
+
+#Check for empty cells, NA's or any unexpected character:
+
+coches[coches$CV == "?",]  
+
+table(is.na(coches))
+table(is.na(coches$CV))   #all the NA's are in the column CV:  6 Missings
+
+# in the whole dataframe there are 6 NA, and same in CV column. In the rest of columns there are 0 NA.
+#We can check this in a visual and easy way with the package "mice" (6 of 392, all 6 in only one variable)
+
+library(mice)
+#We find the NA in a quick and visual way with "mice":
+md.pattern(coches)
+
+# We get a plot matrix for each variable relationship between pairs.
+plot(coches[1:7])    #in this analysys i am not interested in the name of the car or its origin
+
+boxplot(coches$mpg)    #we find an outlier point here
+
+#here we see the MPG for each car
+plot(coches$mpg, main="consumption vs car", sub="each obs. in X asociated to a consumption in Y",
+  xlab="observation num.", ylab="MPG" )
+
+
+
+```
+******
+# Outliers
+******
+ Check the numerical variables for outliers. In case they are detected, eliminate them from the dataset. Make it in an automatisated way (avoiding manual inspection).
+ 
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#Not checking the last 2 variables since we cannot consider them outliers
+
+#importing data table and outliers
+library(data.table)
+library(outliers)
+
+
+
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  y <- x
+  y[x < (qnt[1] - H)] <- NA
+  y[x > (qnt[2] + H)] <- NA
+  y
+}
+
+######################### ######################### #########################
+for (i in 1:7) {
+  x<-coches[[i]]
+y <- remove_outliers(x)
+
+boxplot(x)
+boxplot(y) 
+    }
+  #if ( length(outliers_index) != 0) {
+ # coches_outR<- coches[-outliers_index,]
+#  }
+
+######################### ######################### ######################### 
+# I am showing pre and post function in boxplot pais, reflection the Outlier elimination. Note: in some cases there is no visible change sice there were no Outliers, I plot it even so to deal with the automatization premise from columns 1:7)
+
+
+# There is a scale change. I has no importance that in some cases there are still outliers. In the second case for instance, the shown outliers are there after the first removal (the most extreme values are out of our set now, but if we iterate further, we will continue eliminating elements that are necessary for the analysys.)
+
+#Key point: check outliers, but do not modificate the dataset until it fits in what it is expected.
+
+
+```
+
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+
+#we can deal with outliers in 3 ways:
+
+# 1. imputation: reemplace it with another value (mode, median...). I won't do it in the case of value 46 mpg
+
+# 2. capping: for values out of 1st and 3rd quartiles, we can reemplace them for the values of percentil 5% and 95% (upper or lower depending on where they are)
+
+# 3. prediction: if I have NA values in a intermediate point, and I am able to create a predictive model for this variable, i can reemplaze the NA values with the generated predictions [this method would be useful for NA's in CV variable]
+
+
+
+```
+******
+# Confidence interval (CI)
+******
+Calculate CI at 97% for mpg
+
+Do it manually, do not use R functions that give direct results (t.test or similars). It is allowed to use qnorm, pnorm, qt and pt
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+
+# sample mean calculation
+(mediaMPG <- mean(coches$mpg))
+mediaMPG
+#sample standard deviation
+(sdMPG <- sd(coches$mpg))
+sdMPG
+#size of the sample
+(n <- dim(coches)[1])
+n
+
+#confidence level 97%: 
+
+alpha <- 1 - 0.97
+
+# standard error
+errorTipico <- sdMPG / sqrt(n)
+
+#value of statistic Z :
+
+z <- qnorm(1 - alpha/2)
+z
+
+# error margin
+error <- z * errorTipico
+error
+
+
+# limits are mean+/- ((qnorm(1-alpha/2))*((sd(mpg)/sqrt(n))))  I got them already simplified as standard error, Z, and error margin, thus I only got to add or substract the error to the mean, depending on the case
+
+
+#inferior limit
+
+limite_inferior<- mediaMPG-error
+limite_inferior
+
+#superior limit
+
+limite_superior<- mediaMPG+error
+limite_superior
+```
+******
+# Hypothesis testing
+******
+Someone says that the expected value for MPG is, as minimal, 25 units. Based on data, can we reject this afirmation with a confidence level of 95%?
+
+Note: Do it manually, do not use R functions that give direct results (t.test or similars). It is allowed to use qnorm, pnorm, qt and pt.
+A) Write the test to perform.
+B) Calculate the test statistic, critical value and p-value
+C) Interpretation of results.
+
+
+
+A) Write the test to perform.
+  I will use t Student statistic, since the population variance is unknown
+
+
+  H_o : mu_mpg >= 25       population mean for mpg is higher or equal to 25, null hypothesis 
+  
+  H_1 : mu_mpg <  25       population mean for de mpg is lesser than 25, alternative hypothesis
+
+
+
+B) Calculate the test statistic, critical value and p-value
+
+Some of the variables are already solved from the previous step, I will reuse them (n, errorTipico).
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+
+# Acceptance region for null hypothesis 
+alpha <- 0.05
+valorCritico <- qt(alpha, df = n-1)
+valorCritico
+
+#calculated value for statistic
+estadistico <- (mediaMPG -25 ) / (errorTipico)
+estadistico
+
+p <- pt(estadistico, df = n-1, lower.tail = TRUE)
+p
+
+# p is not higher than 0.05. I discard the null hypothesis in this case
+
+```
+C) The statistic value (-3.791484) is out of the acceptance region (critical value of -1.648), therefore we discard the null hypothesis and we accept the alternative hypothesis.
+
+We can assure with 95% confidence level, that population mean for MPG is lesser than 25
+
+
+******
+# Correlation
+******
+a) Get the correlations between numerical variables. Note: check missings since they will be problematic. 
+b) Show the correlations with a graph. You can use "corrplot" for instance.
+c) Interpretation of results from the previous step.
+
+
+A) Get the correlations between numerical variables. Note: check missings since they will be problematic.
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+# in this case it would be suitable to perform an estimation of every NA. Since it is not asked in this point and we have enough datapoints, we will remove 6 from the 398 observations, with the option of "use only complete observations". I leave out of analysis the name of the car, as it has no influence with the other variables and makes the analysis less clear.
+
+
+matriz_cor<-cor(coches[1:8],use="complete.obs")
+matriz_cor
+
+```
+b) Show the correlations with a graph. You can use "corrplot" for instance.
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+library(corrplot)
+
+corrplot(matriz_cor)
+
+
+```
+C) Interpretad el resultado del apartado anterior.
+
+In the main diagonal, same variables meet, so it is always 1.
+Check only half matrix, since it is a simmetrical matrix and the other half is duplicated information.
+
+In red, we observe the negative influence relationships (when one grows, the other decreases).
+As expected, when "cilinders", "cilinder volume", "CV" or "weight" grows, "MPG" decreases (this is, there is a higher fuel consumption)
+
+Cilinders, cilinder volume and weight are always growing positively with each other in a similar manner. That could indicate, that if we make a variance contribution analysis later, maybe these 4 variables can be summed up in only one due to the big interdependency that they show.
+
+The variable "year" for instance, has a big positive dependency with mpg, the means the more modern the car is, higher mpg and therefore lesser fuel consumption
+
+The variable "origin" grows with mpg, and is lesser with cilinders and cilinder volume. Even when it is not asked, I could have been better to change origin to 3 character values (Europe, Asia, America), since for explanation purposes it makes no sense showing it numerically.
+
+
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+
+
+
+```
+******
+# Linear Regression
+******
+a) Estimate a model which explains the variable MPG as a function of cilinder volume, acceleration, year and origin.
+b) Interpretation of results from this model, indicate if the coefficient are statistically significatives.
+c) Predict the value for a new observation: car with cilinder volume = 145, acceleration = 15.50 and origin = 2
+
+
+a) Estimate a model which explains the variable MPG as a function of cilinder volume, acceleration, year and origin.
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+modeloMPG<- lm(coches$mpg ~ coches$cilindrada+coches$aceleración+coches$año+coches$origen )
+modeloMPG
+
+```
+b) Interpretation of results from this model, indicate if the coefficient are statistically significatives.
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#Check of p-values from the summary of my model:
+summary(modeloMPG)
+
+#I observe the column Pr(>|t|) and specially the cases with *** 
+#This shows the significance level for each parameter listed in a t test. Having a high significance (very low p-value) shows us that this is a good parameter to explain the model. With the parameter acceleration, we can assure it with 87% significance, so it won't be a really good indicator for the calculation of MPG
+
+
+
+# Check of the determination coefficient
+ 
+
+print(summary(modeloMPG)$r.squared)
+
+# the model adjust will be better the nearer to the unit the r squared coefficient is. This implies that residual variance is near to zero, and therefore, the distance of the points that we have as data, to the regression line that we made, will be small (difference between real, and adjusted with line).
+
+#In a whole, we see that for instance, year and origin have a higher influence over mpg than cilinder volume or acceleration (the influence of cilinder volumne is not significative, so we could remove it without getting a significative information loss)
+
+#To know which variables should be included in the model, we could use for example, the most significative results affecting mpg from the correlation matrix
+
+#To sum up, the r squared coefficient, explains the % to 1 of the MPG variance explained by the model, if r squared is 1, the model would be perfect and could be used to predict with total accuracy.
+
+#I carry out the same test, without including cilinder volume to cuantify the information loss in the model:
+
+
+modeloMPG2<- lm(coches$mpg ~ coches$aceleración+coches$año+coches$origen )
+summary(modeloMPG2)$r.squared
+
+#I find that there is a remarkable loss in the adjustment, so I decide to conservate it as proposed in the exercise. (So I have checked, that my proposed model, was worst than the initial calculated)
+
+```
+c) Predict the value for a new observation: car with cilinder volume = 145, acceleration = 15.50 and origin = 2
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#values of model variables
+cilindrada<-145     #(cilinder volume)
+aceleración<-15.50
+año<-76             #(year)
+origen<-2
+
+#model, using coefficient 1 (adjustment) free, and every other coefficient, multiplied by the value of its variable for this case:
+MPGestimado<-modeloMPG$coefficients[[1]]+ modeloMPG$coefficients[[2]]*cilindrada + modeloMPG$coefficients[[3]]*aceleración + modeloMPG$coefficients[[4]] *año + modeloMPG$coefficients[[5]]*origen
+
+MPGestimado
+
+
+```
+******
+# ANOVA method
+******
+a) Create groups for the variable "year"
+G1: year < 73
+G2: 73 <= year < 76
+G3: 76 <= year < 79
+G4: year >= 79
+
+b) Apply ANOVA to identify if there are differences in MPG for the created groups. Interpretation of results.
+
+c) Explain the meaning of SSW, SSB and SST in a variance analysis. How are these calculations used to check if there are differences between groups?
+
+
+d) In case of significative difference between groups, calculate a posteriori test (post-hoc test) like Tukey test. Interpretation of results.
+
+
+
+A)Create groups for the variable "year"
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#I use the package "dplyr" for data manipulation. I create 4 dataframes, where I will filter with every group condition.
+#Afterwards, in a new dataframe, I join the 4 groups with the column name Group
+#In this dataframe (df3) ANOVA can be applied directly.
+
+library(dplyr)
+
+G1<-coches %>%
+  filter (año<73)
+head(G1)
+tail(G1)
+
+G2<-coches %>%
+  filter (72<año & año<76)
+
+G3<-coches %>%
+  filter (75<año & año<79)
+
+
+G4<-coches %>%
+  filter (78<año)
+head(G4)
+tail(G4)
+
+
+
+df3 <- dplyr::bind_rows(list(G1, G2, G3, G4), .id = 'Grupo')
+head(df3)
+tail(df3)
+
+
+
+
+```
+b) Apply ANOVA to identify if there are differences in MPG for the created groups. Interpretation of results.
+
+As we see in the summary here shown, Pr(>F) has *** in significance level, this means that we can assure with accuracy that MPG means for every group are differents. Pr(>F) gives the accuracy that we have on the affirmation of "our calculated F (69.5) is higher than critical F". (In that case, H_o from test must be discarded, this H_o is "means are similar between groups")
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+set.seed(1)
+ANOVAmpg <- aov(df3$mpg~df3$Grupo, data=df3)
+
+ANOVAmpg
+summary(ANOVAmpg)
+```
+C)  Explain the meaning of SSW, SSB and SST in a variance analysis. How are these calculations used to check if there are differences between groups?
+
+*SSB (sum of squares between) is the sum of variances between groups (sum Sq) for groups = 8393*
+
+*SSW (sum of squares within) is the sum of variances intragroup (sum Sq) for Residuals = 15860*
+
+*SST (sum of squares total) is the sum of variances between groups and intragroups. SST = SSB+ SSW *
+
+
+*ANOVA checks the null hypothesis of "every group mean, is the same"*. 
+
+Differently from test t, ANOVA can be used to check differences between more than 2 groups. If the null hypothesis is rejected, it means that at least one of the groups, has a mean significantly different from the rest (although we still don't know which group)
+
+If we want to know which groups create the difference, we use the Tukey test [Tukey’s Honestly Significantly Different(HSD)].
+
+ANOVA is based in two population variance(σ2) estimators, the mean squared error (MSE) and the squared mean between groups (MSB).
+
+MSE is based in the differences between groups, and MSB is based in the differences between sample means
+
+MSE estimates σ2 without checking if the null hypothesis is true (same sample means).
+
+MSB estimates σ2 only if the sample means are equal. If they are different, then MSB estimates a higher amount than σ2.
+
+Therefore, if MSB is much greater than MSE, the sample means can not be equal. In the opposite case, if MSB is near to MSE, then the data confirm the null hypothesis "sample means are equal"
+
+In practice, knowing SSW and SSB, and the freedom degrees for every group (determined by the number of groups and number of observations), we can calculate the F value (69.5 in this case). If this value is out of the critical F for a Fisher distribution and a given alpha and our freedom degrees (3.394), then we reject the H_o  (and we know it is outside limits, checking Pr(>F) in the aov summary)
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#F critical value:
+qf(0.05, 3, 394, lower.tail=F)
+
+
+```
+D) In case of significative difference between groups, calculate a posteriori test (post-hoc test) like Tukey test. Interpretation of results.
+
+*Conclussions:*
+
+"P adj" for groups 1-2 is 0.96, which shows a high probability of having a small means difference between these 2 groups. In the rest of groups we find a very low "p adj". This indicates that the means difference between these groups, is very high.
+
+Groups 1 and 2 correspond to cars manufactured before 1973, and from 73 to 76 respectively. We can conclude that during these two periods, there were any significative improvement in the fuel consumption level of vehicles. However, if we compare the next groups (2-3), we see that the means difference is significative, and positive, so for this period (76-79), there was an improvement in vehicles mean MPG.
+
+The other groups have an even bigger difference level, being the greatest difference between groups 1 and 4, as we could expect.
+
+We can conclude that from year 76 to past year 79, the cars increased their mean MPG, and from 73 to 76, the mean MPG was constant.
+
+```{r,eval=TRUE,echo=TRUE,warning=FALSE, message=FALSE}
+#Tukey HSD test
+library(ggplot2)
+
+Tuk<-TukeyHSD(ANOVAmpg, conf.level = 0.99)  
+Tuk
+
+#converting to dataframe to be able to use it:
+DF_tuk <- as.data.frame.matrix(Tuk$`df3$Grupo`)
+DF_tuk
+
+#I give a name to each group
+group_lwr <- rownames(DF_tuk)
+group_upr <- rownames(DF_tuk)
+group_diff <- rownames(DF_tuk)
+
+values <- c(DF_tuk$lwr, DF_tuk$upr, DF_tuk$diff)
+group <- c(group_lwr, group_upr, group_diff)
+
+data <- data.frame(values, group)
+
+ggplot(data, aes(x = values, y = group)) + 
+  geom_point() + geom_line() + 
+  labs( x = "Differences between MPG means", y = "Groups") + 
+  theme_bw()
+
+```
+
+
+
+
+
+
